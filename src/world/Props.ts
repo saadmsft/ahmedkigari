@@ -212,27 +212,50 @@ export class Props {
     }
   }
 
-  /** Traffic cones ON the road as dynamic obstacles */
+  /** Iranian naval mines ON the road as dynamic obstacles */
   private scatterCones(count: number) {
-    const coneGeo = new THREE.ConeGeometry(0.28, 0.7, 12);
-    const orangeMat = new THREE.MeshStandardMaterial({
-      color: 0xff6a1a,
-      roughness: 0.6,
+    // Mine body: matte-black iron sphere with slight metallic sheen.
+    const mineGeo = new THREE.SphereGeometry(0.34, 20, 14);
+    const mineMat = new THREE.MeshStandardMaterial({
+      color: 0x1a1a1c,
+      roughness: 0.55,
+      metalness: 0.5,
     });
-    const stripeGeo = new THREE.CylinderGeometry(0.22, 0.22, 0.06, 12);
-    const whiteMat = new THREE.MeshStandardMaterial({
-      color: 0xf2f2f2,
-      roughness: 0.6,
+    // Contact horns (Hertz horns) poking out of the sphere.
+    const hornGeo = new THREE.ConeGeometry(0.05, 0.18, 8);
+    const hornMat = new THREE.MeshStandardMaterial({
+      color: 0x2a2a2e,
+      roughness: 0.4,
+      metalness: 0.7,
     });
-    const baseGeo = new THREE.BoxGeometry(0.55, 0.04, 0.55);
-    const baseMat = new THREE.MeshStandardMaterial({
-      color: 0x111113,
+    // Rust band stripe
+    const bandGeo = new THREE.TorusGeometry(0.34, 0.025, 8, 24);
+    const bandMat = new THREE.MeshStandardMaterial({
+      color: 0x8a2f10,
       roughness: 0.8,
+      metalness: 0.2,
+    });
+    // Chain stub anchoring to the "sea floor" (road)
+    const chainGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.35, 6);
+    const chainMat = new THREE.MeshStandardMaterial({
+      color: 0x3a3a3e,
+      roughness: 0.6,
+      metalness: 0.6,
     });
     const RAPIER = this.physics.RAPIER;
     const rng = mulberry32(7777);
     const samples = this.track.samples;
     const tangents = this.track.tangents;
+
+    // Precomputed horn directions (6 spikes around the sphere)
+    const hornDirs: THREE.Vector3[] = [
+      new THREE.Vector3(0, 1, 0),
+      new THREE.Vector3(0.9, 0.4, 0),
+      new THREE.Vector3(-0.9, 0.4, 0),
+      new THREE.Vector3(0, 0.4, 0.9),
+      new THREE.Vector3(0, 0.4, -0.9),
+      new THREE.Vector3(0.6, 0.6, 0.6),
+    ];
 
     let placed = 0;
     let attempts = 0;
@@ -250,20 +273,38 @@ export class Props {
       pos.y = p.y + 0.35;
 
       const group = new THREE.Group();
-      const cone = new THREE.Mesh(coneGeo, orangeMat);
-      cone.position.y = 0.35;
-      cone.castShadow = true;
-      group.add(cone);
-      const stripe = new THREE.Mesh(stripeGeo, whiteMat);
-      stripe.position.y = 0.45;
-      group.add(stripe);
-      const base = new THREE.Mesh(baseGeo, baseMat);
-      base.position.y = 0.02;
-      group.add(base);
+      // Main sphere body
+      const body = new THREE.Mesh(mineGeo, mineMat);
+      body.position.y = 0.35;
+      body.castShadow = true;
+      group.add(body);
+      // Rust band
+      const band = new THREE.Mesh(bandGeo, bandMat);
+      band.rotation.x = Math.PI / 2;
+      band.position.y = 0.35;
+      group.add(band);
+      // Horns
+      for (const dir of hornDirs) {
+        const horn = new THREE.Mesh(hornGeo, hornMat);
+        const n = dir.clone().normalize();
+        horn.position.set(
+          n.x * 0.34 + 0,
+          0.35 + n.y * 0.34,
+          n.z * 0.34,
+        );
+        // Orient the cone's +Y axis along the radial direction
+        horn.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), n);
+        horn.castShadow = true;
+        group.add(horn);
+      }
+      // Chain stub dangling below
+      const chain = new THREE.Mesh(chainGeo, chainMat);
+      chain.position.y = 0.0;
+      group.add(chain);
       group.position.copy(pos);
       this.scene.add(group);
 
-      const body = this.physics.world.createRigidBody(
+      const rb = this.physics.world.createRigidBody(
         RAPIER.RigidBodyDesc.dynamic()
           .setTranslation(pos.x, pos.y, pos.z)
           .setLinearDamping(0.6)
@@ -274,9 +315,9 @@ export class Props {
         .setFriction(0.7)
         .setRestitution(0.2)
         .setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS);
-      const collider = this.physics.world.createCollider(col, body);
+      const collider = this.physics.world.createCollider(col, rb);
       this.obstacleByHandle.set(collider.handle, { kind: "cone", damage: 6 });
-      this.dynamics.push({ body, mesh: group });
+      this.dynamics.push({ body: rb, mesh: group });
       placed++;
     }
   }

@@ -318,6 +318,11 @@ export class Vehicle {
 
     this.scene.add(group);
 
+    // --- Passenger: cartoon "Donald Trump" figure standing on the roof ---
+    // Satirical caricature in the spirit of political-comedy racing games.
+    // Kept deliberately low-poly and cartoonish.
+    this.buildRoofPassenger(group, HY, HZ);
+
     // Wheels — black tire + chrome multi-spoke rim
     const tireGeo = new THREE.CylinderGeometry(
       T.wheelRadius,
@@ -775,6 +780,134 @@ export class Vehicle {
     this.damage = Math.min(100, this.damage + amount);
     this.onImpact?.(Math.min(1, severity));
     if (this.damage >= 100) this.explode();
+  }
+
+  /**
+   * Build a cartoonish "Donald Trump" figure standing on top of the chassis.
+   * Entirely low-poly: a blue-suit body, flesh-tone head, yellow swoop hair,
+   * and a long red tie. Attached to the chassis group so it rides along.
+   */
+  private buildRoofPassenger(
+    parent: THREE.Group,
+    HY: number,
+    HZ: number,
+  ) {
+    const fig = new THREE.Group();
+    // Car local: forward = -Z. Stand the figure slightly behind center so
+    // he doesn't block the camera view of the hood.
+    fig.position.set(0, HY + 0.05, HZ * 0.15);
+
+    // Suit / torso (navy blue jacket)
+    const suitMat = new THREE.MeshStandardMaterial({
+      color: 0x0a1e4a,
+      roughness: 0.7,
+      metalness: 0.05,
+    });
+    const torso = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.24, 0.3, 0.75, 12),
+      suitMat,
+    );
+    torso.position.y = 0.38;
+    torso.castShadow = true;
+    fig.add(torso);
+
+    // White shirt triangle
+    const shirtMat = new THREE.MeshStandardMaterial({
+      color: 0xf5f5f5,
+      roughness: 0.8,
+    });
+    const shirt = new THREE.Mesh(
+      new THREE.BoxGeometry(0.18, 0.5, 0.05),
+      shirtMat,
+    );
+    shirt.position.set(0, 0.38, -0.24);
+    fig.add(shirt);
+
+    // Long red tie
+    const tieMat = new THREE.MeshStandardMaterial({
+      color: 0xd40000,
+      roughness: 0.5,
+    });
+    const tie = new THREE.Mesh(
+      new THREE.BoxGeometry(0.08, 0.42, 0.03),
+      tieMat,
+    );
+    tie.position.set(0, 0.32, -0.265);
+    fig.add(tie);
+
+    // Head — peachy flesh tone
+    const skinMat = new THREE.MeshStandardMaterial({
+      color: 0xf2c89a,
+      roughness: 0.75,
+    });
+    const head = new THREE.Mesh(
+      new THREE.SphereGeometry(0.22, 16, 14),
+      skinMat,
+    );
+    head.position.y = 0.95;
+    head.castShadow = true;
+    fig.add(head);
+
+    // Signature yellow-blond swoop hair — a slightly flattened sphere on top
+    const hairMat = new THREE.MeshStandardMaterial({
+      color: 0xf7d26a,
+      roughness: 0.55,
+      metalness: 0.05,
+    });
+    const hair = new THREE.Mesh(
+      new THREE.SphereGeometry(0.24, 16, 12, 0, Math.PI * 2, 0, Math.PI / 1.6),
+      hairMat,
+    );
+    hair.position.y = 1.02;
+    hair.scale.set(1.05, 0.75, 1.1);
+    hair.rotation.y = 0.15;
+    fig.add(hair);
+
+    // A small "swoop" front bang
+    const bang = new THREE.Mesh(
+      new THREE.BoxGeometry(0.26, 0.05, 0.18),
+      hairMat,
+    );
+    bang.position.set(0.02, 1.08, -0.17);
+    bang.rotation.z = -0.18;
+    fig.add(bang);
+
+    // Eyes — tiny dark dots
+    const eyeMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
+    for (const dx of [-0.07, 0.07]) {
+      const eye = new THREE.Mesh(
+        new THREE.SphereGeometry(0.022, 8, 6),
+        eyeMat,
+      );
+      eye.position.set(dx, 0.97, -0.2);
+      fig.add(eye);
+    }
+
+    // Arms — one raised in a thumbs-up wave
+    const armMat = suitMat;
+    const leftArm = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.07, 0.07, 0.55, 8),
+      armMat,
+    );
+    leftArm.position.set(-0.3, 0.5, 0);
+    leftArm.rotation.z = 0.25;
+    fig.add(leftArm);
+    const rightArm = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.07, 0.07, 0.55, 8),
+      armMat,
+    );
+    rightArm.position.set(0.32, 0.7, 0);
+    rightArm.rotation.z = -1.15; // raised
+    fig.add(rightArm);
+    // Thumb-up hand
+    const hand = new THREE.Mesh(
+      new THREE.SphereGeometry(0.09, 10, 8),
+      skinMat,
+    );
+    hand.position.set(0.55, 0.95, 0);
+    fig.add(hand);
+
+    parent.add(fig);
   }
 
   getSpeed(): number {
