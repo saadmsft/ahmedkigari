@@ -28,6 +28,8 @@ export class AudioManager {
   // Background music (HTMLAudioElement — simple, looping soundtrack)
   private music: HTMLAudioElement | null = null;
   private musicVolume = 0.45;
+  private duckUntil = 0; // timestamp (ms) until which music stays ducked
+  private duckRaf = 0;
 
   /**
    * Play the race soundtrack (loops until stopMusic is called).
@@ -42,6 +44,7 @@ export class AudioManager {
       this.music.volume = this.musicVolume;
     }
     this.music.currentTime = 0;
+    this.music.volume = this.musicVolume;
     this.music.play().catch(() => {
       // Autoplay may be blocked until the first user gesture. The game's
       // start button is itself a gesture, so this is typically fine.
@@ -60,6 +63,43 @@ export class AudioManager {
 
   resumeMusic() {
     this.music?.play().catch(() => {});
+  }
+
+  /**
+   * Temporarily dim the soundtrack to let a sound effect cut through,
+   * then smoothly fade it back to full volume.
+   *
+   * @param duckVolume 0..1 relative to full volume (e.g. 0.15 = 15%)
+   * @param holdMs    time to stay at duckVolume before fading back
+   * @param fadeMs    fade-back duration
+   */
+  duckMusic(duckVolume = 0.15, holdMs = 350, fadeMs = 600) {
+    if (!this.music) return;
+    const target = Math.max(0, Math.min(1, duckVolume)) * this.musicVolume;
+    // Set immediately to the lower volume
+    this.music.volume = Math.min(this.music.volume, target);
+    const now = performance.now();
+    const until = now + holdMs + fadeMs;
+    if (until > this.duckUntil) this.duckUntil = until;
+    const holdEnd = now + holdMs;
+    if (this.duckRaf) cancelAnimationFrame(this.duckRaf);
+    const step = () => {
+      if (!this.music) return;
+      const t = performance.now();
+      if (t < holdEnd) {
+        // still in hold — keep low
+        this.music.volume = target;
+        this.duckRaf = requestAnimationFrame(step);
+      } else if (t < this.duckUntil) {
+        const k = (t - holdEnd) / fadeMs; // 0..1
+        this.music.volume = target + (this.musicVolume - target) * k;
+        this.duckRaf = requestAnimationFrame(step);
+      } else {
+        this.music.volume = this.musicVolume;
+        this.duckRaf = 0;
+      }
+    };
+    this.duckRaf = requestAnimationFrame(step);
   }
 
   async init() {

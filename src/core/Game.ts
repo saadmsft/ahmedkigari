@@ -70,6 +70,7 @@ export class Game {
 
     // When the car blows up, audibly crash and finish the race.
     this.vehicle.onDestroyed = () => {
+      this.audio.stopMusic();
       this.audio.playImpact(1);
       this.audio.playHaww();
       // Show the KABOOOM popup
@@ -203,6 +204,11 @@ export class Game {
             const amount = info.damage * speedFactor;
             this.vehicle.addDamage(amount, Math.min(1, amount / 25));
             if (info.kind === "cone") this.audio.playHayeOye();
+            // Dim the soundtrack so the impact SFX / voice cut through.
+            // Barrels are heavier → deeper duck. Cones → lighter duck.
+            if (info.kind === "barrel") this.audio.duckMusic(0.1, 500, 700);
+            else if (info.kind === "cone") this.audio.duckMusic(0.18, 350, 550);
+            else this.audio.duckMusic(0.25, 300, 500);
           },
         );
         this.vehicle.postPhysics(this.fixedDt);
