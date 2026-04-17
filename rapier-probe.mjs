@@ -1,0 +1,14 @@
+import RAPIER from '@dimforge/rapier3d-compat';
+await RAPIER.init();
+const world = new RAPIER.World({x:0,y:-9.8,z:0});
+const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic());
+world.createCollider(RAPIER.ColliderDesc.cuboid(1,0.5,2), body);
+const vc = world.createVehicleController(body);
+vc.addWheel({x:-1,y:-0.5,z:1}, {x:0,y:-1,z:0}, {x:-1,y:0,z:0}, 0.3, 0.3);
+const proto = Object.getPrototypeOf(vc);
+console.log('VC methods:\n' + Object.getOwnPropertyNames(proto).sort().join('\n'));
+console.log('---');
+console.log('wheelChassisConnectionPointCs(0):', vc.wheelChassisConnectionPointCs(0));
+console.log('wheelSuspensionLength(0):', vc.wheelSuspensionLength(0));
+console.log('wheelSteering(0):', vc.wheelSteering(0));
+console.log('wheelRotation(0):', vc.wheelRotation(0));

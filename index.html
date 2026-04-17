@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover" />
+    <meta name="theme-color" content="#0a0a0a" />
+    <title>Apex Drive — 3D Car Game</title>
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; height: 100%; background: #000; color: #f5f5f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; overflow: hidden; overscroll-behavior: none; }
+      #app { position: fixed; inset: 0; }
+      canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+
+      /* Loading */
+      #loading { position: fixed; inset: 0; background: linear-gradient(180deg, #1a2540 0%, #0a0f1a 100%); display:flex; flex-direction:column; align-items:center; justify-content:center; gap: 16px; z-index: 50; transition: opacity .4s; }
+      #loading h1 { font-weight: 900; letter-spacing: 0.08em; font-size: 32px; margin: 0; color: #f5f5f5; }
+      #loading .bar { width: min(360px, 70vw); height: 4px; background:#2a2f3c; border-radius: 2px; overflow:hidden; }
+      #loading .bar > div { height:100%; width: 0%; background: linear-gradient(90deg,#ff3344,#ffd452); transition: width .2s; }
+      #loading small { opacity: 0.55; letter-spacing: 0.05em; }
+
+      /* HUD */
+      #hud { position: fixed; inset: 0; pointer-events: none; font-variant-numeric: tabular-nums; z-index: 10; }
+      #hud .speedo { position: absolute; right: 22px; bottom: 22px; text-align:right; text-shadow: 0 2px 12px #000c; }
+      #hud .speedo .kmh { font-size: 72px; font-weight: 800; line-height:1; color: #ffffff; letter-spacing: -0.02em; }
+      #hud .speedo .unit { opacity: .7; font-size: 12px; letter-spacing: 0.3em; color: #ddd; font-weight: 600; }
+      #hud .speedo .gear { font-size: 20px; font-weight: 700; color: #ffd452; letter-spacing: 0.12em; }
+
+      #hud .lap { position: absolute; left: 22px; top: 22px; text-shadow: 0 2px 10px #000c; }
+      #hud .lap .time { font-size: 34px; font-weight: 800; color: #ffffff; letter-spacing: -0.01em; }
+      #hud .lap .best { opacity: .7; font-size: 12px; letter-spacing: 0.08em; }
+      #hud .lap .count { font-size: 11px; opacity: .8; letter-spacing: 0.25em; color: #ffd452; font-weight: 600; }
+
+      #hud .damage { position: absolute; left: 22px; bottom: 22px; width: 200px; }
+      #hud .damage .label { font-size: 10px; letter-spacing: 0.2em; opacity:.7; color:#ddd; font-weight: 600; }
+      #hud .damage .bar { height: 6px; background: #000a; border: 1px solid #ffffff22; border-radius: 3px; overflow: hidden; margin-top: 5px; }
+      #hud .damage .bar > div { height: 100%; width: 0%; background: linear-gradient(90deg,#7dff6a,#ffd452,#ff3344); transition: width .2s; }
+
+      #minimap { position: absolute; right: 22px; top: 22px; width: 180px; height: 180px; background: #000a; border: 1px solid #ffffff22; border-radius: 10px; backdrop-filter: blur(6px); }
+
+      #hud .hint { position: absolute; left: 50%; transform: translateX(-50%); bottom: 22px; font-size: 11px; opacity: .5; letter-spacing: 0.15em; }
+
+      /* Menus */
+      .overlay { position: fixed; inset: 0; display: flex; flex-direction:column; align-items:center; justify-content:center; gap: 14px; z-index: 20; background: #000a; backdrop-filter: blur(6px); }
+      .overlay[hidden] { display: none !important; }
+      #hud[hidden] { display: none !important; }
+      .overlay h2 { margin: 0 0 10px; font-weight: 900; letter-spacing: 0.1em; font-size: 34px; color: #ffffff; }
+      .overlay button { appearance:none; border: 1px solid #ffffff33; background: #ffffff10; color: #fff; padding: 12px 28px; font-weight: 700; letter-spacing: 0.08em; cursor: pointer; border-radius: 6px; pointer-events:auto; font-family: inherit; transition: all .15s; backdrop-filter: blur(8px); }
+      .overlay button:hover { background:#ffffff22; border-color:#ffffff66; transform: translateY(-1px); }
+      .overlay .row { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
+      .overlay .help { font-size: 12px; opacity: .65; max-width: 380px; text-align:center; line-height:1.6; }
+
+      #countdown { position: fixed; inset: 0; display:none; align-items:center; justify-content:center; font-size: 200px; font-weight: 900; color: #ffffff; text-shadow: 0 0 40px #ffd452aa, 0 6px 30px #000; pointer-events:none; z-index: 15; letter-spacing: 0.02em; }
+
+      /* KABOOOM popup */
+      #kaboom { position: fixed; inset: 0; display:none; align-items:center; justify-content:center; flex-direction:column; pointer-events:none; z-index: 40; }
+      #kaboom.show { display: flex; animation: kaboom-fade 3.2s ease-in forwards; }
+      @keyframes kaboom-fade {
+        0% { opacity: 0; }
+        8% { opacity: 1; }
+        85% { opacity: 1; }
+        100% { opacity: 0; }
+      }
+      #kaboom .boom {
+        font-family: 'Impact', 'Arial Black', sans-serif;
+        font-size: clamp(90px, 18vw, 240px);
+        font-weight: 900;
+        color: #ffd452;
+        -webkit-text-stroke: 6px #1a0a00;
+        text-stroke: 6px #1a0a00;
+        text-shadow:
+          0 0 40px #ff6a1a,
+          0 0 80px #ff3344,
+          8px 8px 0 #cc1a1a,
+          -4px -4px 0 #fff;
+        letter-spacing: 0.02em;
+        transform: rotate(-6deg);
+        animation: kaboom-pop 3.2s cubic-bezier(.2,1.6,.4,1) forwards;
+      }
+      @keyframes kaboom-pop {
+        0%   { transform: rotate(-6deg) scale(0.1); }
+        15%  { transform: rotate(-9deg) scale(1.35); }
+        25%  { transform: rotate(-3deg) scale(1.0); }
+        35%  { transform: rotate(-8deg) scale(1.15); }
+        60%  { transform: rotate(-6deg) scale(1.05); }
+        80%  { transform: rotate(-7deg) scale(1.0); }
+        100% { transform: rotate(-6deg) scale(0.9); }
+      }
+      #kaboom .line {
+        margin-top: 18px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-weight: 900;
+        font-size: clamp(22px, 4vw, 46px);
+        color: #ffffff;
+        background: #d40000;
+        padding: 10px 26px;
+        border: 4px solid #1a0a00;
+        border-radius: 8px;
+        box-shadow: 0 12px 30px #000a, 0 0 0 4px #ffd45288;
+        transform: rotate(2deg);
+        text-shadow: 2px 2px 0 #000;
+        letter-spacing: 0.04em;
+        animation: kaboom-line 3.2s ease-out forwards;
+      }
+      @keyframes kaboom-line {
+        0%   { transform: rotate(2deg) translateY(40px) scale(0.6); opacity: 0; }
+        20%  { transform: rotate(2deg) translateY(0) scale(1.15); opacity: 1; }
+        30%  { transform: rotate(-2deg) translateY(0) scale(1.0); }
+        40%  { transform: rotate(3deg) translateY(0) scale(1.05); }
+        55%  { transform: rotate(2deg) translateY(0) scale(1.0); }
+        100% { transform: rotate(2deg) translateY(0) scale(1.0); opacity: 1; }
+      }
+      #kaboom .rays {
+        position: absolute;
+        inset: 0;
+        background:
+          repeating-conic-gradient(
+            from 0deg,
+            #ffd45266 0deg,
+            #ffd45266 8deg,
+            transparent 8deg,
+            transparent 24deg
+          );
+        opacity: 0.35;
+        animation: kaboom-spin 3.2s linear;
+      }
+      @keyframes kaboom-spin {
+        0% { transform: rotate(0deg) scale(0.6); opacity: 0; }
+        15% { opacity: 0.55; }
+        100% { transform: rotate(180deg) scale(1.4); opacity: 0; }
+      }
+
+      /* Touch controls */
+      #touch { position: fixed; inset: 0; display: none; z-index: 12; pointer-events: none; }
+      #touch.active { display: block; }
+      #touch .stick { position: absolute; left: 20px; bottom: 20px; width: 160px; height: 160px; border-radius: 50%; background: #fff1; border: 2px solid #fff3; pointer-events: auto; touch-action: none; }
+      #touch .stick .knob { position: absolute; left: 50%; top: 50%; width: 72px; height: 72px; margin: -36px 0 0 -36px; border-radius: 50%; background: #fff4; border: 2px solid #fff6; }
+      #touch .pedals { position: absolute; right: 20px; bottom: 20px; display:flex; gap:12px; pointer-events:auto; }
+      #touch .pedal { width: 90px; height: 110px; border-radius: 14px; background: #fff1; border: 2px solid #fff3; color:#fff; font-weight:800; display:flex; align-items:center; justify-content:center; font-size: 14px; letter-spacing: 0.15em; user-select:none; touch-action: none; }
+      #touch .pedal.throttle { background: #31d15820; border-color:#31d158aa; }
+      #touch .pedal.brake { background: #ff4b1f20; border-color:#ff4b1faa; }
+      #touch .btns { position: absolute; right: 20px; top: 210px; display:flex; flex-direction:column; gap:10px; pointer-events:auto; }
+      #touch .btn { width: 64px; height: 64px; border-radius: 50%; background:#fff1; border: 2px solid #fff3; color:#fff; font-weight:800; display:flex;align-items:center;justify-content:center; user-select:none; touch-action:none; font-size:12px; letter-spacing:.1em; }
+
+      #stats { position: fixed; left: 0; top: 0; z-index: 30; }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <div id="loading">
+      <h1>APEX DRIVE</h1>
+      <div class="bar"><div id="loading-bar"></div></div>
+      <small id="loading-text">Loading…</small>
+    </div>
+
+    <div id="hud" hidden>
+      <div class="lap">
+        <div class="count"><span id="lap-count">LAP 1 / 3</span></div>
+        <div class="time" id="lap-time">0:00.000</div>
+        <div class="best">BEST <span id="lap-best">—</span></div>
+      </div>
+      <canvas id="minimap" width="340" height="340"></canvas>
+      <div class="speedo">
+        <div class="gear" id="gear">N</div>
+        <div class="kmh"><span id="kmh">0</span></div>
+        <div class="unit">KM/H</div>
+      </div>
+      <div class="damage">
+        <div class="label">DAMAGE</div>
+        <div class="bar"><div id="damage-bar"></div></div>
+      </div>
+      <div class="hint" id="hud-hint">WASD / Arrows — drive • Space — handbrake • C — camera • R — reset • Esc — pause</div>
+    </div>
+
+    <div id="countdown"></div>
+
+    <div id="kaboom">
+      <div class="rays"></div>
+      <div class="boom">KABOOOM!</div>
+      <div class="line">Ahmad ki gari tukk gyi!</div>
+    </div>
+
+    <div class="overlay" id="start-menu">
+      <h2>APEX DRIVE</h2>
+      <div class="row">
+        <button id="btn-start">START RACE</button>
+      </div>
+      <div class="help">
+        <b>Keyboard:</b> WASD/Arrows drive, Space handbrake, C camera, R reset, Esc pause<br/>
+        <b>Gamepad:</b> Left stick steer, RT throttle, LT brake, A handbrake, Y camera, B reset<br/>
+        <b>Touch:</b> Left stick to steer, right pedals for gas/brake
+      </div>
+    </div>
+
+    <div class="overlay" id="pause-menu" hidden>
+      <h2>PAUSED</h2>
+      <div class="row">
+        <button id="btn-resume">RESUME</button>
+        <button id="btn-restart">RESTART</button>
+        <button id="btn-toggle-daynight">TOGGLE DAY/NIGHT</button>
+      </div>
+    </div>
+
+    <div class="overlay" id="results-menu" hidden>
+      <h2 id="results-title">FINISHED</h2>
+      <div id="results-body" class="help"></div>
+      <div class="row"><button id="btn-again">RACE AGAIN</button></div>
+    </div>
+
+    <div id="touch">
+      <div class="stick" id="t-stick"><div class="knob" id="t-knob"></div></div>
+      <div class="pedals">
+        <div class="pedal brake" id="t-brake">BRAKE</div>
+        <div class="pedal throttle" id="t-throttle">GAS</div>
+      </div>
+      <div class="btns">
+        <div class="btn" id="t-handbrake">HND</div>
+        <div class="btn" id="t-cam">CAM</div>
+        <div class="btn" id="t-reset">RST</div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
