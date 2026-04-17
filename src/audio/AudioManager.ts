@@ -25,6 +25,43 @@ export class AudioManager {
   private lastSpeed = 0;
   private started = false;
 
+  // Background music (HTMLAudioElement — simple, looping soundtrack)
+  private music: HTMLAudioElement | null = null;
+  private musicVolume = 0.45;
+
+  /**
+   * Play the race soundtrack (loops until stopMusic is called).
+   * Uses a relative URL so it works on GitHub Pages subpath deployments.
+   */
+  playMusic(src = "aaloo_remix.mp3") {
+    if (!this.music) {
+      // import.meta.env.BASE_URL matches Vite's base config ("./" → "./")
+      const base = (import.meta as any).env?.BASE_URL ?? "/";
+      this.music = new Audio(`${base}${src}`);
+      this.music.loop = true;
+      this.music.volume = this.musicVolume;
+    }
+    this.music.currentTime = 0;
+    this.music.play().catch(() => {
+      // Autoplay may be blocked until the first user gesture. The game's
+      // start button is itself a gesture, so this is typically fine.
+    });
+  }
+
+  stopMusic() {
+    if (!this.music) return;
+    this.music.pause();
+    this.music.currentTime = 0;
+  }
+
+  pauseMusic() {
+    this.music?.pause();
+  }
+
+  resumeMusic() {
+    this.music?.play().catch(() => {});
+  }
+
   async init() {
     // defer context creation until user gesture
     document.addEventListener("pointerdown", () => this.ensureCtx(), {

@@ -65,6 +65,7 @@ export class Game {
     this.cameraRig = new CameraRig(this.renderer.camera, this.vehicle);
     this.hud = new HUD();
     this.race = new Race(this.track, this.vehicle, this.hud);
+    this.race.onFinish = () => this.audio.stopMusic();
     this.fx = new LapStartFX(this.renderer.scene, this.track);
 
     // When the car blows up, audibly crash and finish the race.
@@ -82,6 +83,7 @@ export class Game {
       // Let the popup play before showing results (popup lasts ~3.2s)
       window.setTimeout(() => {
         if (kaboom) kaboom.classList.remove("show");
+        this.audio.stopMusic();
         this.race.forceFinish("WRECKED");
       }, 2800);
     };
@@ -119,6 +121,7 @@ export class Game {
     this.race.beginCountdown(() => {
       this.race.startLap();
       this.fx.trigger();
+      this.audio.playMusic();
     });
     requestAnimationFrame(this.frame);
   }
@@ -130,6 +133,7 @@ export class Game {
     document.getElementById("pause-menu")!.hidden = true;
     document.getElementById("hud")!.hidden = false;
     document.getElementById("kaboom")?.classList.remove("show");
+    this.audio.stopMusic();
     this.resetVehicle();
     this.race.reset();
     this.paused = false;
@@ -137,6 +141,7 @@ export class Game {
     this.race.beginCountdown(() => {
       this.race.startLap();
       this.fx.trigger();
+      this.audio.playMusic();
     });
   }
 
@@ -144,13 +149,19 @@ export class Game {
     document.getElementById("pause-menu")!.hidden = true;
     this.paused = false;
     this.lastTime = performance.now();
+    this.audio.resumeMusic();
   }
 
   togglePause() {
     if (!this.running) return;
     this.paused = !this.paused;
     document.getElementById("pause-menu")!.hidden = !this.paused;
-    if (!this.paused) this.lastTime = performance.now();
+    if (!this.paused) {
+      this.lastTime = performance.now();
+      this.audio.resumeMusic();
+    } else {
+      this.audio.pauseMusic();
+    }
   }
 
   toggleDayNight() {

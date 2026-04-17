@@ -20,6 +20,7 @@ export class Race {
   bestLapTime: number | null = null;
   splits: number[] = [];
   active = false;
+  onFinish?: () => void;
 
   constructor(track: Track, vehicle: Vehicle, hud: HUD) {
     this.track = track;
@@ -98,6 +99,7 @@ export class Race {
   }
 
   private showResults(reason?: string) {
+    this.onFinish?.();
     const menu = document.getElementById("results-menu")!;
     const body = document.getElementById("results-body")!;
     const title = menu.querySelector("h2");
